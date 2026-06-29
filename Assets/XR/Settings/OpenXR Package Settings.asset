@@ -250,8 +250,6 @@ MonoBehaviour:
   m_Name: Standalone
   m_EditorClassIdentifier: 
   features:
-  - {fileID: -6676851310179047597}
-  - {fileID: 1302490722093471459}
   - {fileID: -8140706892780551157}
   - {fileID: -6856192351200642318}
   - {fileID: 3336191625198455102}
@@ -260,6 +258,7 @@ MonoBehaviour:
   - {fileID: -1275996266990346177}
   - {fileID: 2615153393704407915}
   - {fileID: -6203439642295201099}
+  - {fileID: -6676851310179047597}
   - {fileID: 798094442204714025}
   - {fileID: 7194984373782310545}
   - {fileID: 4822845983787154053}
@@ -268,6 +267,7 @@ MonoBehaviour:
   - {fileID: 8985094781402606780}
   - {fileID: 9204663702859711569}
   - {fileID: 1134207603369758898}
+  - {fileID: 1302490722093471459}
   m_renderMode: 1
   m_autoColorSubmissionMode: 1
   m_colorSubmissionModes:
@@ -613,8 +613,6 @@ MonoBehaviour:
   m_Name: Android
   m_EditorClassIdentifier: 
   features:
-  - {fileID: -2404223000137327182}
-  - {fileID: 4816843235763786296}
   - {fileID: -9216402410259913297}
   - {fileID: 7310611931447415189}
   - {fileID: -9026691669108850872}
@@ -622,6 +620,7 @@ MonoBehaviour:
   - {fileID: 5230424333264076225}
   - {fileID: 1272667002744255319}
   - {fileID: 5136276739642539419}
+  - {fileID: -2404223000137327182}
   - {fileID: 5788868995516552251}
   - {fileID: 5212590287279197447}
   - {fileID: -769772193811755627}
@@ -629,6 +628,7 @@ MonoBehaviour:
   - {fileID: -2058158704769825727}
   - {fileID: -4870316944812600368}
   - {fileID: -2398170822673333673}
+  - {fileID: 4816843235763786296}
   m_renderMode: 1
   m_autoColorSubmissionMode: 1
   m_colorSubmissionModes:
@@ -789,7 +789,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f647cc0545697264a9878224faada6d5, type: 3}
   m_Name: MetaQuestFeature Android
   m_EditorClassIdentifier: 
-  m_enabled: 1
+  m_enabled: 0
   nameUi: Meta Quest Support
   version: 1.0.0
   featureIdInternal: com.unity.openxr.feature.metaquest
@@ -895,7 +895,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c4b862ee14fb479fbfe5fffe655d3ed3, type: 3}
   m_Name: MetaQuestTouchProControllerProfile Android
   m_EditorClassIdentifier: 
-  m_enabled: 1
+  m_enabled: 0
   nameUi: Meta Quest Touch Pro Controller Profile
   version: 0.0.1
   featureIdInternal: com.unity.openxr.feature.input.metaquestpro

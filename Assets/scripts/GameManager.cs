@@ -39,7 +39,7 @@ public class GameManager : MonoBehaviour
     {
         Debug.Log("GAME OVER - El T-Rex atrapó al jugador");
         if (pantallaGameOver) pantallaGameOver.SetActive(true);
-        Time.timeScale = 0f;    // Pausa el juego
+        //Time.timeScale = 0f;    // Pausa el juego
     }
 
     public void Victoria()

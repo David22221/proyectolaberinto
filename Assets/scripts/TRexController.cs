@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.AI;
+using System.Collections;
 
 public class TRexController : MonoBehaviour
 {
@@ -11,47 +12,74 @@ public class TRexController : MonoBehaviour
     private Transform jugador;
 
     [Header("Detección")]
-    public float radioDeteccion = 15f;      // Distancia para detectar al jugador
-    public float radioAtaque    = 2.5f;     // Distancia para atacar
+    public float radioDeteccion = 15f;
+    public float radioAtaque    = 2.5f;
 
     [Header("Velocidades")]
-    public float velocidadPatrulla  = 2f;
+    public float velocidadPatrulla    = 2f;
     public float velocidadPersecucion = 6f;
 
     [Header("Patrulla")]
-    public Transform[] puntosPatrulla;      // Asignar en Inspector
+    public Transform[] puntosPatrulla;
     private int indicePunto = 0;
 
     [Header("Sonidos")]
-    public AudioSource audioRugido;
-    public AudioSource audioPasos;
-    public AudioClip   clipRugido;
-    public AudioClip   clipAtaque;
-    public AudioClip clipPasos; 
-    private float tiempoUltimoRugido = 0f;
-    public float intervaloRugido = 8f;      // Rugido cada 8 segundos al perseguir
+    public AudioSource audioRugido;     // Parlante para rugidos
+    public AudioSource audioPasos;      // Parlante para pasos
+    public AudioClip   clipRugido;      // Rugido periódico (siempre)
+    public AudioClip   clipAtaque;      // Rugido al detectar jugador
+    public AudioClip   clipPasos;       // Pasos en loop
 
-    // Estos nombres deben coincidir con los parámetros del Animator
-    private static readonly int ParamCaminando  = Animator.StringToHash("caminando");
-    private static readonly int ParamCorriendo  = Animator.StringToHash("corriendo");
-    private static readonly int ParamAtacando   = Animator.StringToHash("atacando");
+    [Header("Intervalos de rugido")]
+    public float intervaloRugidoPatrulla  = 12f; // Rugido cada 12s patrullando
+    public float intervaloRugidoPersigue  = 5f;  // Rugido cada 5s persiguiendo
+    private float tiempoUltimoRugido = 0f;
+
+    private static readonly int ParamCaminando = Animator.StringToHash("caminando");
+    private static readonly int ParamCorriendo = Animator.StringToHash("corriendo");
+    private static readonly int ParamAtacando  = Animator.StringToHash("atacando");
 
     private bool juegoTerminado = false;
 
     void Start()
     {
         agente   = GetComponent<NavMeshAgent>();
-        animador = GetComponent<Animator>();
+        animador = GetComponentInChildren<Animator>();
 
-        // Busca al jugador por tag (asegúrate de tagear tu XR Rig como "Player")
-        jugador = GameObject.FindGameObjectWithTag("Player").transform;
+        // Configurar audio pasos
+        if (audioPasos != null && clipPasos != null)
+        {
+            audioPasos.clip         = clipPasos;
+            audioPasos.loop         = true;
+            audioPasos.volume       = 0.4f;
+            audioPasos.spatialBlend = 0f;
+        }
 
-        IrAlSiguientePunto();
+        // Configurar audio rugido
+        if (audioRugido != null)
+        {
+            audioRugido.spatialBlend = 0f;
+            audioRugido.loop         = false;
+            audioRugido.playOnAwake  = false;
+        }
+
+        // Jugador
+        GameObject jugadorObj = GameObject.FindGameObjectWithTag("Player");
+        if (jugadorObj != null)
+            jugador = jugadorObj.transform;
+        else
+            Debug.LogError("[TRex] No hay objeto con tag 'Player'");
+
+        Invoke("IrAlSiguientePunto", 1f);
     }
 
     void Update()
     {
         if (juegoTerminado) return;
+        if (jugador == null) return;
+
+        if (animador != null)
+            animador.applyRootMotion = false;
 
         float distancia = Vector3.Distance(transform.position, jugador.position);
 
@@ -59,15 +87,19 @@ public class TRexController : MonoBehaviour
         {
             case Estado.Patrulla:
                 ActualizarPatrulla();
+                // Rugido periódico lento mientras patrulla
+                RugidoPeriodico(intervaloRugidoPatrulla);
                 if (distancia <= radioDeteccion)
                     CambiarEstado(Estado.Persigue);
                 break;
 
             case Estado.Persigue:
                 ActualizarPersecucion();
+                // Rugido periódico rápido mientras persigue
+                RugidoPeriodico(intervaloRugidoPersigue);
                 if (distancia <= radioAtaque)
                     CambiarEstado(Estado.Ataca);
-                else if (distancia > radioDeteccion * 1.5f)   // Pierde al jugador
+                else if (distancia > radioDeteccion * 1.5f)
                     CambiarEstado(Estado.Patrulla);
                 break;
 
@@ -79,16 +111,32 @@ public class TRexController : MonoBehaviour
         }
     }
 
+    void RugidoPeriodico(float intervalo)
+    {
+        if (Time.time - tiempoUltimoRugido >= intervalo)
+        {
+            if (audioRugido != null && clipRugido != null && !audioRugido.isPlaying)
+            {
+                audioRugido.PlayOneShot(clipRugido);
+                tiempoUltimoRugido = Time.time;
+            }
+        }
+    }
+
     void ActualizarPatrulla()
     {
         if (puntosPatrulla.Length == 0) return;
 
         agente.speed = velocidadPatrulla;
         SetAnimacion(caminando: true, corriendo: false, atacando: false);
+        ReproducirPasos(true);
 
-        // Al llegar al punto, ir al siguiente
-        if (!agente.pathPending && agente.remainingDistance < 0.5f)
+        if (agente.isOnNavMesh &&
+            !agente.pathPending &&
+            agente.remainingDistance <= agente.stoppingDistance)
+        {
             IrAlSiguientePunto();
+        }
     }
 
     void IrAlSiguientePunto()
@@ -98,26 +146,19 @@ public class TRexController : MonoBehaviour
         indicePunto = (indicePunto + 1) % puntosPatrulla.Length;
     }
 
-
     void ActualizarPersecucion()
     {
         agente.speed       = velocidadPersecucion;
         agente.destination = jugador.position;
         SetAnimacion(caminando: false, corriendo: true, atacando: false);
-
-        // Rugido periódico mientras persigue
-        if (Time.time - tiempoUltimoRugido > intervaloRugido)
-        {
-            ReproducirRugido(clipRugido);
-            tiempoUltimoRugido = Time.time;
-        }
+        ReproducirPasos(true);
     }
-
 
     void ActualizarAtaque()
     {
-        agente.ResetPath();     // Se detiene
+        agente.ResetPath();
         SetAnimacion(caminando: false, corriendo: false, atacando: true);
+        ReproducirPasos(false);
 
         // Mira al jugador
         Vector3 direccion = (jugador.position - transform.position).normalized;
@@ -127,22 +168,50 @@ public class TRexController : MonoBehaviour
             Quaternion.LookRotation(direccion),
             Time.deltaTime * 5f
         );
-
-        ReproducirRugido(clipAtaque);
-        GameManager.Instance?.GameOver();    // Avisa al GameManager
-        juegoTerminado = true;
     }
-
 
     void CambiarEstado(Estado nuevoEstado)
     {
+        Estado estadoAnterior = estadoActual;
         estadoActual = nuevoEstado;
+        Debug.Log("[TRex] Estado: " + nuevoEstado);
 
-        if (nuevoEstado == Estado.Persigue)
+        // Al detectar al jugador → rugido de ataque
+        if (nuevoEstado == Estado.Persigue && estadoAnterior == Estado.Patrulla)
         {
-            ReproducirRugido(clipRugido);
-            tiempoUltimoRugido = Time.time;
+            if (audioRugido != null && clipAtaque != null)
+            {
+                audioRugido.Stop();
+                audioRugido.PlayOneShot(clipAtaque);
+                tiempoUltimoRugido = Time.time + 3f; // Pausa el rugido periódico 3s
+            }
         }
+
+        // Al atrapar al jugador → rugido de ataque + Game Over con delay
+        if (nuevoEstado == Estado.Ataca && estadoAnterior == Estado.Persigue)
+        {
+            if (audioRugido != null && clipAtaque != null)
+            {
+                audioRugido.Stop();
+                audioRugido.PlayOneShot(clipAtaque);
+            }
+            StartCoroutine(GameOverConDelay(1.5f)); // Espera 1.5s para que suene el rugido
+        }
+
+        // Al perder al jugador → vuelve a patrullar
+        if (nuevoEstado == Estado.Patrulla)
+        {
+            IrAlSiguientePunto();
+            tiempoUltimoRugido = Time.time; // Resetea el timer
+        }
+    }
+
+
+    IEnumerator GameOverConDelay(float delay)
+    {
+        juegoTerminado = true;
+        yield return new WaitForSeconds(delay);
+        GameManager.Instance?.GameOver();
     }
 
     void SetAnimacion(bool caminando, bool corriendo, bool atacando)
@@ -153,25 +222,20 @@ public class TRexController : MonoBehaviour
         animador.SetBool(ParamAtacando,  atacando);
     }
 
-    void ReproducirRugido(AudioClip clip)
+    void ReproducirPasos(bool moviéndose)
     {
-        if (audioRugido != null && clip != null && !audioRugido.isPlaying)
-            audioRugido.PlayOneShot(clip);
+        if (audioPasos == null) return;
+        if (moviéndose && !audioPasos.isPlaying)
+            audioPasos.Play();
+        else if (!moviéndose && audioPasos.isPlaying)
+            audioPasos.Stop();
     }
 
     void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, radioDeteccion);
-
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, radioAtaque);
-    }
-
-    // Este método lo llama la animación automáticamente
-    public void SonidoPaso()
-    {
-        if (audioPasos != null && clipPasos != null)
-            audioPasos.PlayOneShot(clipPasos);
     }
 }
